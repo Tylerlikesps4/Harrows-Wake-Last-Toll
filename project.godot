@@ -1,0 +1,38 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Harrow's Wake: Last Toll"
+config/description="PS1-style first-person horror - Super Free AI Game Jam #2"
+run/main_scene="res://scenes/main.tscn"
+config/icon="res://icon.svg"
+config/features=PackedStringArray("4.3", "C#", "GL Compatibility")
+
+[dotnet]
+
+project/assembly_name="LastToll"
+
+[display]
+
+window/size/viewport_width=320
+window/size/viewport_height=240
+window/size/window_width_override=1280
+window/size/window_height_override=960
+window/stretch/mode="viewport"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+textures/default_filters/use_nearest_mipmap_filter=true
+anti_aliasing/quality/msaa_3d=0
+lights_and_shadows/positional_shadow/atlas_size.mobile=1024
+textures/vram_compression/import_etc2_astc=true
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=false

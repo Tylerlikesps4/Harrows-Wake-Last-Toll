@@ -1,0 +1,9 @@
+.godot/
+build/
+out/
+*.apk
+*.exe
+*.keystore
+bin/
+obj/
+.vs/
