@@ -41,4 +41,8 @@ Everything about this game (design, map, core loop, AI, player controller, UI) w
 AI use: made with AI assistance (Hark), as the jam allows.
 
 ## License
-Code: GNU GPL v3 (see LICENSE), Copyright (C) 2026 Tylerlikesps4. Third-party assets are CC0 (see CREDITS.md). The Harrow's Wake name and logo are not licensed.
+Copyright (C) 2026 Tylerlikesps4.
+
+The game code is free software under the **GNU General Public License v3.0 or later** (full text in [LICENSE](LICENSE)). It comes with no warranty.
+
+Third-party textures, models and sounds in `assets/` keep their own licenses (CC0; see [CREDITS.md](CREDITS.md)). The "Harrow's Wake" name and logo are not covered by the GPL and aren't licensed for reuse.
