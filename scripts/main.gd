@@ -2,7 +2,7 @@ extends Node3D
 ## Harrow's Wake: Last Toll - one night in the St. Agnes Orphanage.
 ## Find the bell rope, the clapper and the chapel key, then ring the chapel
 ## bell before the Bellman finds you. Level, items, UI and game flow live here;
-## the Bellman's AI is C# (csharp/Bellman.cs).
+## the Bellman's AI is in scripts/bellman.gd.
 
 const PlayerScript := preload("res://scripts/player.gd")
 const TouchScript := preload("res://scripts/touch.gd")
@@ -368,7 +368,7 @@ func _build_player() -> void:
 
 
 func _build_bellman() -> void:
-	bellman = load("res://csharp/Bellman.cs").new()
+	bellman = preload("res://scripts/bellman.gd").new()
 	bellman.name = "Bellman"
 	add_child(bellman)
 	var rows := PackedStringArray(MAP)

@@ -12,36 +12,31 @@ env:
   GODOT_VERSION: "4.3"
   GODOT_URL: https://github.com/godotengine/godot/releases/download/4.3-stable
 
-# Godot 4.3 .NET (mono) build. The barichello/godot-ci:mono-4.3 container has no
-# dotnet on PATH, no JDK and no Android SDK, so this runs on the plain Ubuntu
-# runner instead (it ships the Android SDK), with .NET 8 and Java 17 set up by
-# actions and the official Godot .NET editor + export templates.
+# Plain Godot 4.3 (GDScript only, no .NET), so the project can also export to
+# the web. Runs on the Ubuntu runner (it ships the Android SDK) with Java 17
+# and the official Godot editor + export templates.
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Install Godot 4.3 .NET + export templates
+      - name: Install Godot 4.3 + export templates
         run: |
           cd "$RUNNER_TEMP"
-          curl -sSL -o godot.zip "$GODOT_URL/Godot_v4.3-stable_mono_linux_x86_64.zip"
+          curl -sSL -o godot.zip "$GODOT_URL/Godot_v4.3-stable_linux.x86_64.zip"
           unzip -q godot.zip
-          sudo ln -sf "$RUNNER_TEMP/Godot_v4.3-stable_mono_linux_x86_64/Godot_v4.3-stable_mono_linux.x86_64" /usr/local/bin/godot
-          curl -sSL -o tpl.tpz "$GODOT_URL/Godot_v4.3-stable_mono_export_templates.tpz"
+          sudo ln -sf "$RUNNER_TEMP/Godot_v4.3-stable_linux.x86_64" /usr/local/bin/godot
+          curl -sSL -o tpl.tpz "$GODOT_URL/Godot_v4.3-stable_export_templates.tpz"
           unzip -q tpl.tpz
-          mkdir -p ~/.local/share/godot/export_templates/4.3.stable.mono
-          mv templates/* ~/.local/share/godot/export_templates/4.3.stable.mono/
-          ls ~/.local/share/godot/export_templates/4.3.stable.mono/
+          mkdir -p ~/.local/share/godot/export_templates/4.3.stable
+          mv templates/* ~/.local/share/godot/export_templates/4.3.stable/
+          ls ~/.local/share/godot/export_templates/4.3.stable/
           godot --version
 
       - name: Android SDK paths and debug key
@@ -82,9 +77,6 @@ jobs:
           sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/" export_presets.cfg
           grep "version/code" export_presets.cfg
 
-      - name: Build C# (dotnet)
-        run: dotnet build LastToll.sln -c Debug
-
       - name: Import project
         run: timeout 300 godot --headless --editor --quit || true
 
@@ -103,7 +95,6 @@ jobs:
           godot --headless --export-release "Windows Desktop" "$PWD/out/win/LastToll.exe"
           ls -laR out/win | head -40
           test -f out/win/LastToll.exe
-          # C# builds ship the .NET assemblies in a data_* folder next to the exe.
           cp tools/pc/README-PC.txt out/win/README.txt
           (cd out/win && zip -qr ../LastToll-Windows.zip .)
           ls -la out
@@ -120,13 +111,24 @@ jobs:
 
       - name: Export Android APK
         run: |
-          # Release template (smaller, faster than the debug one). The csproj drops the
-          # unused Mono static libraries from the .NET publish folder.
+          # Release template (smaller and faster than the debug one).
           godot --headless --export-release "Android" "$PWD/out/LastToll.apk"
           ls -la out
           test -f out/LastToll.apk
           unzip -l out/LastToll.apk | sort -nr | head -12
           ! unzip -l out/LastToll.apk | grep -E "\.a$|assets/out/"
+
+      - name: Export Web (HTML5, no threads for itch.io)
+        run: |
+          mkdir -p out/web
+          godot --headless --export-release "Web" "$PWD/out/web/index.html"
+          ls -la out/web
+          test -f out/web/index.html
+          test -f out/web/index.wasm
+          test -f out/web/index.pck
+          # itch.io wants index.html at the root of the zip.
+          (cd out/web && zip -qr ../LastToll-Web.zip .)
+          unzip -l out/LastToll-Web.zip
 
       - uses: actions/upload-artifact@v4
         with:
@@ -135,14 +137,16 @@ jobs:
             out/LastToll.apk
             out/LastToll-Windows.zip
             out/LastToll-Linux.zip
+            out/LastToll-Web.zip
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: Last Toll build ${{ github.run_number }}
-          body: "Harrow's Wake - Last Toll, a Super Free AI Game Jam #2 entry (Godot 4.3 .NET). Windows - extract LastToll-Windows.zip and run LastToll.exe (keep the data_LastToll folder next to it). Linux - extract LastToll-Linux.zip and run LastToll.x86_64. Android - install LastToll.apk (allow installs from your browser). README.txt in the zips has the controls. Headphones recommended."
+          body: "Harrow's Wake - Last Toll, a Super Free AI Game Jam #2 entry (Godot 4.3). Browser - LastToll-Web.zip is the HTML5 build (upload to itch.io as playable in the browser, or unzip and serve index.html). Windows - extract LastToll-Windows.zip and run LastToll.exe. Linux - extract LastToll-Linux.zip and run LastToll.x86_64. Android - install LastToll.apk (allow installs from your browser). README.txt in the zips has the controls. Headphones recommended."
           files: |
             out/LastToll.apk
             out/LastToll-Windows.zip
             out/LastToll-Linux.zip
+            out/LastToll-Web.zip

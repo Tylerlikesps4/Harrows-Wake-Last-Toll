@@ -7,11 +7,7 @@ config/name="Harrow's Wake: Last Toll"
 config/description="PS1-style first-person horror - Super Free AI Game Jam #2"
 run/main_scene="res://scenes/main.tscn"
 config/icon="res://icon.svg"
-config/features=PackedStringArray("4.3", "C#", "GL Compatibility")
-
-[dotnet]
-
-project/assembly_name="LastToll"
+config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [display]
 

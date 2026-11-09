@@ -7,7 +7,10 @@ St. Agnes Orphanage, 3:12 AM. The Bellman walks the halls ringing his hand bell.
 Target length: 10-15 minutes.
 
 ## Download
-Every push to `main` builds a release on the [Releases page](https://github.com/Tylerlikesps4/Harrows-Wake-Last-Toll/releases): `LastToll-Windows.zip`, `LastToll-Linux.zip` and `LastToll.apk` (Android).
+Every push to `main` builds a release on the [Releases page](https://github.com/Tylerlikesps4/Harrows-Wake-Last-Toll/releases):
+- `LastToll-Web.zip` - the browser (HTML5) build, `index.html` at the zip root. On itch.io, upload it as a file marked "This file will be played in the browser". Built without threads, so it needs no special server headers.
+- `LastToll-Windows.zip`, `LastToll-Linux.zip` - desktop builds.
+- `LastToll.apk` - Android.
 
 ## Controls
 | | Keyboard + mouse | Gamepad | Touch |
@@ -22,16 +25,16 @@ Every push to `main` builds a release on the [Releases page](https://github.com/
 | Fullscreen | F11 | | |
 
 ## Building
-Godot 4.3 **.NET** edition, .NET 8 SDK.
-1. `dotnet build LastToll.sln`
-2. Open in Godot 4.3 .NET, or run headless.
+Standard Godot 4.3 (no .NET needed; the whole game is GDScript).
+1. Open the folder in Godot 4.3, or import headless: `godot --headless --editor --quit`.
+2. Export: presets for Windows, Linux, Android and Web are in `export_presets.cfg` (e.g. `godot --headless --export-release "Web" out/web/index.html`; needs the 4.3 export templates).
 3. Tests: `godot --headless -- --smoke` (automated playthrough). Screenshots: `xvfb-run -s "-screen 0 1280x960x24" godot -- --shots --out=/tmp/shots`.
 
 ## Layout
 - `scripts/main.gd` - level (built from the ASCII map), items, UI, game flow
 - `scripts/player.gd` - first-person controller
 - `scripts/touch.gd` - phone controls
-- `csharp/Bellman.cs` - the Bellman's AI (grid pathfinding, hearing, sight, chase, search, his hand bell)
+- `scripts/bellman.gd` - the Bellman's AI (grid pathfinding, hearing, sight, chase, search, his hand bell)
 - `scripts/lib.gd`, `shaders/` - PSX material/prop helper and shaders reused from Harrow's Wake
 - `tests/` - smoke test and screenshot tour
 
