@@ -5,7 +5,7 @@ Harrow's Wake: Last Toll reuses CC0 assets from Harrow's Wake (pre-made material
 ## Props (`assets/props/`)
 | Files | Asset | Author | Source | License |
 |---|---|---|---|---|
-| beds, bookcases, desk, chairs, cabinets, boxes, lamps, radio, TV, bear, rug, table, trashcan, plant, coat rack, pillow | Furniture Kit 2.0 | Kenney | https://kenney.nl/assets/furniture-kit | CC0 |
+| beds, bookcases, the wardrobe (`bookcaseClosedDoors`), desk, chairs, cabinets, boxes, lamps, radio, TV, bear, rug, table, trashcan, plant, coat rack, pillow | Furniture Kit 2.0 | Kenney | https://kenney.nl/assets/furniture-kit | CC0 |
 | `gy_*` (pews/benches, altar, candles, wooden cross, coffin, debris, lantern, urn) + `Textures/colormap.png` | Graveyard Kit | Kenney | https://kenney.nl/assets/graveyard-kit | CC0 |
 
 ## Textures (`assets/tex/`, downscaled to 128x128, 64 colours)
@@ -17,7 +17,7 @@ All from Poly Haven (https://polyhaven.com/license, CC0): old_wood_floor, decrep
 | `step_wood_*`, `step_concrete_*`, `step_carpet_*`, `bell_toll` (pitched impactBell_heavy), `splat` (impactPunch_heavy), `bulb_pop` (impactGlass_light) | Impact Sounds | Kenney | https://kenney.nl/assets/impact-sounds | CC0 |
 | `creak`, `door`, `pickup` | RPG Audio | Kenney | https://kenney.nl/assets/rpg-audio | CC0 |
 | `menu`, `glitch` | Interface Sounds | Kenney | https://kenney.nl/assets/interface-sounds | CC0 |
-| `bell` (bell_03, pitched down), `tube` (machine_01), `unlock` (key_open_01), `flashlight` (switch_01), `slam` (slam_03), `static` (noise_01, looped) | 100 CC0 SFX | rubberduck | https://opengameart.org/content/100-cc0-sfx | CC0 |
+| `bell` (bell_03, pitched down; `bell_muffled` is a low-passed copy), `tube` (machine_01), `unlock` (key_open_01), `flashlight` (switch_01), `slam` (slam_03), `static` (noise_01, looped) | 100 CC0 SFX | rubberduck | https://opengameart.org/content/100-cc0-sfx | CC0 |
 | `bell_roar` (scream_02), `hurt` (hurt_02), `breath`, `zombie_die` (monster_03) | 80 CC0 creature SFX | rubberduck | https://opengameart.org/content/80-cc0-creature-sfx | CC0 |
 | `gunshot` (22 Pistol) | Gunshots | kurt | https://opengameart.org/content/gunshots | CC0 |
 | `groan_1..4` | Undead Moans | AntumDeluge | https://opengameart.org/content/undead-moans | CC0 |

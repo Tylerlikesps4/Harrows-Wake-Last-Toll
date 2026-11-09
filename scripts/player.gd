@@ -9,6 +9,9 @@ var yaw: float = 0.0
 var pitch: float = 0.0
 var mouse_sens: float = 0.0025
 var hidden: bool = false
+var hide_yaw: float = 0.0       # the way the hiding spot looks out
+var hide_eye: float = 1.55
+var holding_breath: bool = false
 var light_on: bool = true
 var stamina: float = 100.0
 var exhausted: bool = false
@@ -84,6 +87,30 @@ func _physics_process(delta: float) -> void:
 	yaw -= rs.x * 2.6 * delta + touch_look.x * 0.006
 	pitch = clampf(pitch - rs.y * 1.8 * delta - touch_look.y * 0.006, -1.3, 1.3)
 	touch_look = Vector2.ZERO
+	# a hiding child keeps the torch covered
+	flashlight.visible = light_on and not hidden
+	if hidden:
+		# peeking out: look a little either way, no walking. Hold sneak to hold your breath.
+		yaw = clampf(wrapf(yaw - hide_yaw, -PI, PI), -0.55, 0.55) + hide_yaw
+		pitch = clampf(pitch, -0.5, 0.35)
+		rotation.y = yaw
+		cam.rotation.x = pitch
+		velocity = Vector3.ZERO
+		holding_breath = (Input.is_action_pressed("sneak") or touch_run) and not exhausted
+		if holding_breath:
+			stamina -= 16.0 * delta
+			if stamina <= 0.0:
+				stamina = 0.0
+				exhausted = true
+				holding_breath = false
+				main.on_gasp()
+		else:
+			stamina = minf(100.0, stamina + 10.0 * delta)
+			if exhausted and stamina > 35.0:
+				exhausted = false
+		cam.position.y = hide_eye
+		return
+	holding_breath = false
 	rotation.y = yaw
 	cam.rotation.x = pitch
 

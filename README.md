@@ -2,7 +2,7 @@
 
 A short PS1-style first-person horror game, made for **Super Free AI Game Jam #2** on itch.io (7-14 Nov 2026). A one-night spin-off of [Harrow's Wake](https://github.com/Tylerlikesps4/Harrows-Wake).
 
-St. Agnes Orphanage, 3:12 AM. The Bellman walks the halls ringing his hand bell. Find the **bell rope**, the **bell clapper** and the **chapel key**, unlock the chapel and ring the great bell before he finds you. You can't fight him. Listen for his bell, keep your distance, and don't run unless you must: running is loud.
+St. Agnes Orphanage, 3:12 AM. The Bellman walks the halls ringing his hand bell. Find the **bell rope**, the **bell clapper** and the **chapel key**, unlock the chapel and ring the great bell before he finds you. You can't fight him. Listen for his bell, keep your distance, and don't run unless you must: running is loud. Hide in a wardrobe or under a bed, but only if he didn't see you get in, and hold your breath when he's close.
 
 Target length: 10-15 minutes.
 
@@ -18,8 +18,8 @@ Every push to `main` builds a release on the [Releases page](https://github.com/
 | Move | WASD / arrows | Left stick | Drag left half |
 | Look | Mouse | Right stick | Drag right half |
 | Run (loud) | Shift | B / L3 | RUN (toggle) |
-| Sneak (quiet) | Ctrl / C | R3 | - |
-| Use | E / Space / Enter | A | USE |
+| Sneak (quiet) / hold breath when hiding | Ctrl / C | R3 | RUN button becomes BREATH while hiding |
+| Use / hide / leave a hiding spot | E / Space / Enter | A | USE |
 | Flashlight | F | LB | LIGHT |
 | Pause | Esc / P | Start | II |
 | Fullscreen | F11 | | |

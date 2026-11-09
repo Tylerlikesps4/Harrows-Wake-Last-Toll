@@ -47,6 +47,17 @@ const ITEMS := {
 	"k": ["key", "Chapel Key", "A heavy iron key on a ribbon. The tag says CHAPEL - MATRON ONLY."],
 }
 
+# Hiding spots: kind, x, y (cell units, like _p), the yaw you look out along.
+# Wardrobes stand against north walls and open south (+z); you can also slide
+# under an infirmary bed.
+const HIDE_SPOTS := [
+	["wardrobe", 3.6, 1.42],
+	["wardrobe", 22.0, 1.42],
+	["wardrobe", 7.0, 10.42],
+	["wardrobe", 20.6, 10.42],
+	["bed", 17.0, 13.2],
+]
+
 const NOTE_TEXT := "Matron Agnes, 3rd Nov.\nWhen the hand bell rings in the halls, the children are not to leave their beds.\nOnly the great bell in the chapel sends him away. I have taken the rope and the clapper and locked the chapel. God forgive me. - M."
 
 static var skip_title: bool = false
@@ -69,6 +80,8 @@ var amb_player: AudioStreamPlayer
 var post_mat: ShaderMaterial
 var chase_on: bool = false
 var near_it: Dictionary = {}
+var hide_it: Dictionary = {}    # the spot the player is in, or empty
+var bed_shade: ColorRect
 
 # UI
 var hud: CanvasLayer
@@ -88,6 +101,7 @@ func _ready() -> void:
 	_build_sfx()
 	_build_environment()
 	_build_level()
+	_build_hiding_spots()
 	_build_player()
 	_build_bellman()
 	_build_ui()
@@ -357,6 +371,87 @@ func _dress_rooms(lvl: Node3D) -> void:
 	_p(lvl, "cabinetBedDrawer", 24.5, 13.5, 0.0, 0.6)
 
 
+func _build_hiding_spots() -> void:
+	var lvl: Node3D = $Level
+	var i := 0
+	for h in HIDE_SPOTS:
+		var at := Vector3(h[1] * CELL, 0, h[2] * CELL)
+		var it := {"id": "hide_%d" % i, "kind": "hide", "spot": h[0], "look_yaw": PI}
+		if h[0] == "wardrobe":
+			var w := Lib.prop(lvl, "bookcaseClosedDoors", at, 0.0, 2.2, 2, Color(0.75, 0.62, 0.5), true)
+			it["node"] = w
+			it["pos"] = at + Vector3(0, 1.1, 0.45)       # its doors
+			it["inside"] = at + Vector3(0, 0, 0.5)         # just behind the doors
+			it["out"] = at + Vector3(0, 0, 1.25)
+			it["eye"] = 1.5
+		else:
+			# the bed itself is already in the infirmary; you slide under it
+			it["node"] = null
+			it["pos"] = at + Vector3(0.9, 0.4, 0)
+			it["inside"] = at
+			it["out"] = at + Vector3(1.6, 0, 0)
+			it["eye"] = 0.28
+			it["look_yaw"] = -PI / 2.0                      # look out east, into the ward
+		interactables.append(it)
+		i += 1
+
+
+func hiding() -> bool:
+	return not hide_it.is_empty()
+
+
+func enter_hide(it: Dictionary) -> void:
+	# He only knows where you went if he could see you get in.
+	var seen: bool = bellman.state == "chase" or bellman.can_see_player()
+	hide_it = it
+	player.hidden = true
+	player.hide_yaw = it["look_yaw"]
+	player.hide_eye = it["eye"]
+	player.global_position = it["inside"]
+	player.set_look(it["look_yaw"], 0.0)
+	if touch != null:
+		touch.run_toggle = false
+	play_sfx("creak", null, -8.0, 0.9)
+	make_noise(player.global_position, 2.0)
+	bellman.on_player_hid(it["inside"], seen)
+	show_message("Hold Ctrl (BREATH) to hold your breath when he's close.
+E / USE to get out." if it["spot"] == "wardrobe" else "Under the bed. Hold Ctrl (BREATH) when he's close.
+E / USE to crawl out.", 4.0)
+
+
+func leave_hide() -> void:
+	if not hiding():
+		return
+	var it := hide_it
+	hide_it = {}
+	player.hidden = false
+	player.holding_breath = false
+	player.global_position = it["out"]
+	player.set_look(it["look_yaw"], 0.0)
+	play_sfx("creak", null, -8.0, 1.05)
+	make_noise(player.global_position, 3.0)
+	bellman.on_player_left_hiding()
+
+
+## Ran out of breath inside a hiding spot.
+func on_gasp() -> void:
+	play_sfx("breath", null, 0.0)
+	make_noise(player.global_position, 8.0)
+	if hiding() and bellman.state != "dormant" and bellman.global_position.distance_to(player.global_position) < 8.0:
+		bellman._hunt(hide_it["inside"])
+
+
+## He found the hiding spot and opened it.
+func dragged_out() -> void:
+	if mode != "play" or not hiding():
+		return
+	var spot: String = hide_it["spot"]
+	play_sfx("slam", null, -2.0)
+	hide_it = {}
+	player.hidden = false
+	_die("THE BELLMAN TOOK YOU\n\n%s\n\n" % ("He opens the wardrobe doors, slowly. He knew." if spot == "wardrobe" else "A gloved hand reaches under the bed."))
+
+
 func _build_player() -> void:
 	player = CharacterBody3D.new()
 	player.set_script(PlayerScript)
@@ -372,7 +467,7 @@ func _build_bellman() -> void:
 	bellman.name = "Bellman"
 	add_child(bellman)
 	var rows := PackedStringArray(MAP)
-	bellman.setup(rows, CELL, player, self, sfx["bell"])
+	bellman.setup(rows, CELL, player, self, sfx["bell"], sfx["bell_muffled"])
 	for y in MAP.size():
 		var x: int = (MAP[y] as String).find("W")
 		if x >= 0:
@@ -380,7 +475,7 @@ func _build_bellman() -> void:
 
 
 func _build_sfx() -> void:
-	for n in ["bell", "bell_toll", "bell_roar", "creak", "door", "pickup", "menu", "sting", "unlock", "flashlight", "slam", "breath", "hurt", "scream", "glitch"]:
+	for n in ["bell", "bell_muffled", "bell_toll", "bell_roar", "creak", "door", "pickup", "menu", "sting", "unlock", "flashlight", "slam", "breath", "hurt", "scream", "glitch"]:
 		sfx[n] = load("res://assets/audio/%s.ogg" % n)
 	for i in 3:
 		sfx["step_%d" % i] = load("res://assets/audio/step_wood_%d.ogg" % i)
@@ -458,6 +553,11 @@ func _build_ui() -> void:
 	post_mat.shader = POST_SHADER
 	post.material = post_mat
 	post_layer.add_child(post)
+	bed_shade = ColorRect.new()
+	bed_shade.color = Color(0.02, 0.015, 0.01, 0.97)
+	bed_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bed_shade.visible = false
+	post_layer.add_child(bed_shade)
 	hud = CanvasLayer.new()
 	hud.layer = 3
 	add_child(hud)
@@ -500,6 +600,10 @@ func _layout_ui() -> void:
 	stamina_bar.position = Vector2(vs.x * 0.5 - 30, vs.y - 8)
 	stamina_bar.size = Vector2(60.0 * player.stamina / 100.0, 2)
 	stamina_bar.visible = mode == "play" and player.stamina < 99.0
+	# under a bed: the slats and mattress fill the top of the view
+	bed_shade.position = Vector2.ZERO
+	bed_shade.size = Vector2(vs.x, vs.y * 0.42)
+	bed_shade.visible = mode == "play" and hiding() and hide_it["spot"] == "bed"
 
 
 func show_message(t: String, secs: float = 3.5) -> void:
@@ -625,6 +729,8 @@ func _unhandled_input(e: InputEvent) -> void:
 
 # ---------------------------------------------------------------- interaction
 func find_near() -> Dictionary:
+	if hiding():
+		return {}
 	var best: Dictionary = {}
 	var best_d := 2.2
 	var eye: Vector3 = player.cam.global_position
@@ -654,11 +760,16 @@ func prompt_for(it: Dictionary) -> String:
 			return "Ring the bell" if inventory.has("rope") and inventory.has("clapper") else "The chapel bell"
 		"note":
 			return "Read the note"
+		"hide":
+			return "Hide in the wardrobe" if it["spot"] == "wardrobe" else "Hide under the bed"
 	return ""
 
 
 func try_interact() -> void:
 	if mode != "play":
+		return
+	if hiding():
+		leave_hide()
 		return
 	var it := find_near()
 	if it.is_empty():
@@ -706,6 +817,8 @@ func interact(id: String) -> void:
 				show_message("The bell has no rope and no clapper.\nIt cannot ring like this.", 4.0)
 				return
 			_win()
+		"hide":
+			enter_hide(it)
 		"note":
 			mode = "read"
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -726,12 +839,16 @@ func on_chase_end() -> void:
 func caught() -> void:
 	if mode != "play":
 		return
+	_die("THE BELLMAN TOOK YOU\n\nHe rings for one more child tonight.\n\n")
+
+
+func _die(text: String) -> void:
 	mode = "dead"
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	play_sfx("bell_roar", null, 0.0)
 	play_sfx("scream", null, -6.0)
 	bellman.rest()
-	_show_overlay("THE BELLMAN TOOK YOU\n\nHe rings for one more child tonight.\n\n%s" % ("Tap to try again" if touch.visible else "Press E / Enter to try again"), 0.9)
+	_show_overlay(text + ("Tap to try again" if touch.visible else "Press E / Enter to try again"), 0.9)
 
 
 func _fmt_time(t: float) -> String:
@@ -762,7 +879,10 @@ func _process(delta: float) -> void:
 		obj_label.text = objective()
 		near_it = find_near()
 		prompt_label.text = ("[ %s ]" % prompt_for(near_it)) if not near_it.is_empty() else ""
-	prompt_label.visible = playing and not near_it.is_empty()
+	if playing and hiding():
+		prompt_label.text = "[ holding your breath ]" if player.holding_breath else "[ hidden ]"
+	prompt_label.visible = playing and (not near_it.is_empty() or hiding())
+	post_mat.set_shader_parameter("slit", 1.0 if playing and hiding() and hide_it["spot"] == "wardrobe" else 0.0)
 	fade = maxf(0.0, fade - delta * 0.6)
 	post_mat.set_shader_parameter("fade", fade if mode == "play" else 0.0)
 	# dread: heartbeat and screen panic by distance to the Bellman

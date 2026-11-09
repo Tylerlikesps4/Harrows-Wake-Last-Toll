@@ -75,6 +75,8 @@ func _process(_d: float) -> void:
 	for id in ["use", "run", "light"]:
 		buttons[id].visible = playing
 	(buttons["run"] as Label).modulate = Color(1, 0.6, 0.5) if run_toggle else Color(1, 1, 1)
+	# in a hiding spot the RUN button holds your breath instead
+	(buttons["run"] as Label).text = "BREATH" if player != null and player.hidden else "RUN"
 	if player != null:
 		player.touch_run = run_toggle
 

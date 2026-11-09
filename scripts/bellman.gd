@@ -26,10 +26,15 @@ var search_t := 0.0
 var idle_t := 0.0
 var rng := RandomNumberGenerator.new()
 var bell: AudioStreamPlayer3D
+var bell_muffled: AudioStreamPlayer3D  # the same ring, low-passed, heard through walls
+var occlusion := 0.0                   # 0 = clear line of sight to the player, 1 = behind walls
+var bell_db := -2.0
+var hunt_spot = null                   # a hiding spot he saw (or heard) the player in
+var breath_t := 0.0
 var body: Node3D
 
 
-func setup(rows, cell_size: float, player_node: Node3D, main_node: Node, bell_stream: AudioStream) -> void:
+func setup(rows, cell_size: float, player_node: Node3D, main_node: Node, bell_stream: AudioStream, muffled_stream: AudioStream = null) -> void:
 	grid.clear()
 	for r in rows:
 		var chars := []
@@ -58,6 +63,16 @@ func setup(rows, cell_size: float, player_node: Node3D, main_node: Node, bell_st
 	bell.position = Vector3(0.45, 1.1, 0)
 	bell.bus = "SFX"
 	add_child(bell)
+	# Web builds play audio as samples, which ignore bus effects, so the muffling is
+	# a second, pre-filtered copy of the bell crossfaded by line of sight.
+	bell_muffled = AudioStreamPlayer3D.new()
+	bell_muffled.stream = muffled_stream if muffled_stream != null else bell_stream
+	bell_muffled.unit_size = 4.0
+	bell_muffled.max_distance = 40.0
+	bell_muffled.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	bell_muffled.position = bell.position
+	bell_muffled.bus = "SFX"
+	add_child(bell_muffled)
 
 
 func _mat(col: Color) -> StandardMaterial3D:
@@ -110,6 +125,8 @@ func wake() -> void:
 
 func rest() -> void:
 	state = "dormant"
+	hunt_spot = null
+	breath_t = 0.0
 	path.clear()
 	velocity = Vector3.ZERO
 
@@ -127,6 +144,30 @@ func hear(pos: Vector3, radius: float) -> void:
 		return
 	state = "investigate"
 	_go_to(pos)
+
+
+## The player just got into a hiding spot. If he saw it (or was already chasing),
+## he walks straight to it and opens it.
+func on_player_hid(spot: Vector3, seen: bool) -> void:
+	breath_t = 0.0
+	if state == "dormant" or not seen:
+		return
+	_hunt(spot)
+
+
+## Heard breathing or a gasp from inside a hiding spot.
+func _hunt(spot: Vector3) -> void:
+	hunt_spot = spot
+	if state != "chase":
+		state = "chase"
+		main.call("on_chase_start")
+	repath_t = 0.0
+	lost_t = 0.0
+
+
+func on_player_left_hiding() -> void:
+	hunt_spot = null
+	breath_t = 0.0
 
 
 # ------------------------------------------------------------- grid
@@ -208,6 +249,36 @@ func _pick_wander() -> void:
 				return
 
 
+# ------------------------------------------------------------- bell audio
+func bell_interval() -> float:
+	match state:
+		"chase":
+			return rng.randf_range(0.4, 0.6)
+		"investigate", "search":
+			return rng.randf_range(0.85, 1.15)
+	return rng.randf_range(1.4, 2.2)
+
+
+## Walls between the bell and the player's ears muffle it; so do wardrobe doors.
+func wall_between() -> bool:
+	var cam: Node3D = player.get("cam")
+	var ear: Vector3 = cam.global_position if cam != null else player.global_position + Vector3(0, 1.5, 0)
+	var q := PhysicsRayQueryParameters3D.create(bell.global_position, ear, 1)
+	return not get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+
+func _update_occlusion(dt: float) -> void:
+	var target := 1.0 if wall_between() else 0.0
+	if player.get("hidden"):
+		target = maxf(target, 0.55)
+	occlusion = move_toward(occlusion, target, dt * 2.5)
+
+
+func _apply_bell_volume() -> void:
+	bell.volume_db = bell_db + linear_to_db(maxf(1.0 - occlusion, 0.001))
+	bell_muffled.volume_db = bell_db - 1.0 + linear_to_db(maxf(occlusion, 0.001))
+
+
 # ------------------------------------------------------------- senses
 func can_see_player() -> bool:
 	if player == null or player.get("hidden"):
@@ -243,13 +314,32 @@ func _physics_process(delta: float) -> void:
 			state = "chase"
 			main.call("on_chase_start")
 
+	# A hidden player who isn't holding their breath can be heard up close.
+	if player.get("hidden") and hunt_spot == null:
+		var pd2 := global_position.distance_to(player.global_position)
+		if pd2 < 3.5 and not player.get("holding_breath"):
+			breath_t += dt
+			if breath_t > 2.0:
+				_hunt(player.global_position)
+		else:
+			breath_t = maxf(0.0, breath_t - dt * 0.5)
+
 	match state:
 		"chase":
 			repath_t -= dt
 			if repath_t <= 0.0:
 				repath_t = 0.35
-				_go_to(player.global_position if sees else last_seen)
-			if not sees:
+				if hunt_spot != null:
+					_go_to(hunt_spot)
+				else:
+					_go_to(player.global_position if sees else last_seen)
+			if hunt_spot != null:
+				var hs: Vector3 = hunt_spot
+				if Vector2(hs.x - global_position.x, hs.z - global_position.z).length() < 1.5:
+					hunt_spot = null
+					main.call("dragged_out")
+					return
+			elif not sees:
 				lost_t += dt
 				if lost_t > 3.0:
 					state = "search"
@@ -292,12 +382,21 @@ func _physics_process(delta: float) -> void:
 		body.position = Vector3(0, absf(sin(Time.get_ticks_msec() * 0.006)) * (0.04 if moving else 0.0), 0)
 
 	# The hand bell: slow, patient rings while he walks; frantic in a chase.
+	# Its tempo tells you his mood: slow while he wanders, quicker when he has heard
+	# something, frantic in a chase.
+	_update_occlusion(dt)
 	bell_t -= dt
 	if bell_t <= 0.0:
-		bell_t = rng.randf_range(0.4, 0.6) if state == "chase" else rng.randf_range(1.4, 2.2)
-		bell.pitch_scale = rng.randf_range(0.92, 1.06)
-		bell.volume_db = 2.0 if state == "chase" else -2.0
+		bell_t = bell_interval()
+		var pitch := rng.randf_range(0.92, 1.06)
+		bell.pitch_scale = pitch
+		bell_muffled.pitch_scale = pitch
+		bell_db = 2.0 if state == "chase" else (0.0 if state in ["investigate", "search"] else -2.0)
+		_apply_bell_volume()
 		bell.play()
+		bell_muffled.play()
+	else:
+		_apply_bell_volume()
 
 	var pd := global_position.distance_to(Vector3(player.global_position.x, global_position.y, player.global_position.z))
 	if pd < catch_range and not player.get("hidden"):

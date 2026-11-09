@@ -7,3 +7,12 @@
 - Heartbeat and a red panic shimmer by distance to him. Title, pause, note reader, death and win screens, escape timer. Touch controls for phones.
 - Automated playthrough test (25 checks) runs in CI.
 - Reused from Harrow's Wake (pre-made, credited): CC0 textures, Kenney props, CC0 sound effects, the PSX shaders and the prop/material helper (`lib.gd`). Everything else is new this week.
+
+## Day 1 - Sun 8 Nov 2026
+- **Browser build.** Every other entry in the jam plays in the browser, and Godot 4.3 can't export C# projects to the web, so the Bellman's AI moved from C# (`csharp/Bellman.cs`) to GDScript (`scripts/bellman.gd`), line for line with the same behaviour (all 25 day-0 checks still pass). The project is now plain Godot 4.3 with no .NET. CI uses the standard Godot 4.3 editor and export templates and adds a Web export (threads off, so itch.io needs no special headers): `LastToll-Web.zip`, with `index.html` at the zip root, is published next to the Windows/Linux zips and the APK.
+- **Hiding.** Four wardrobes (dormitory, kitchen, Matron's office, infirmary) and the infirmary bed. Inside a wardrobe you peek out through the gap between its doors; under the bed the mattress fills the top of your view. Your torch stays covered while you hide.
+- **He knows if he saw you.** If the Bellman is chasing you or can see you when you get in, he walks to that wardrobe and opens it. If he didn't, he can't see you in there.
+- **Hold your breath** (Ctrl, or the BREATH button on phones). Breathe normally within a few metres of him for two seconds and he hears you. Holding your breath drains stamina; run out and you gasp, and he comes for the spot.
+- **His bell tells you where he is and what he's doing.** It's muffled through walls (and a little inside a wardrobe), using a second low-passed copy of the bell crossfaded by line of sight, which also works with the web build's sample-based audio. Its tempo now has three speeds: slow while he wanders, quicker when he has heard something, frantic in a chase.
+- Smoke test grows from 25 to 43 checks (hiding, unseen vs seen, breath, wall muffling, bell tempo). Screenshot tour adds the wardrobe, the peek view and under the bed.
+- Reused from Harrow's Wake (pre-made, credited): the Kenney `bookcaseClosedDoors` model as the wardrobe. `bell_muffled.ogg` is a low-passed copy of the CC0 hand bell.

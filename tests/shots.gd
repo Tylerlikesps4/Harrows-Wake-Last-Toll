@@ -53,4 +53,23 @@ func _run() -> void:
 	await snap("05_bellman_hall")
 	await view(Vector3(42.0, 0, 5.0), -PI / 2, -0.3)
 	await snap("06_kitchen_clapper")
+	# hiding: the dormitory wardrobe from outside, then peeking out, then under a bed
+	var w: Dictionary = m.interactables.filter(func(i): return i["id"] == "hide_0")[0]
+	await view(w["out"] + Vector3(0, 0, 2.0), 0.0, -0.05)
+	await snap("07_wardrobe")
+	m.enter_hide(w)
+	m.msg_t = 0.0
+	m.bellman.rest()
+	m.bellman.global_position = w["out"] + Vector3(0.3, 0, 1.6)
+	m.bellman.rotation.y = 0.0
+	await wait(0.5)
+	await snap("08_wardrobe_peek")
+	m.leave_hide()
+	var b: Dictionary = m.interactables.filter(func(i): return i["id"] == "hide_4")[0]
+	await view(b["out"] + Vector3(1.0, 0, 0.0), PI / 2, -0.25)
+	await snap("09_infirmary_bed")
+	m.enter_hide(b)
+	m.msg_t = 0.0
+	await wait(0.5)
+	await snap("10_under_bed")
 	get_tree().quit()
