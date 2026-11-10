@@ -16,3 +16,7 @@
 - **His bell tells you where he is and what he's doing.** It's muffled through walls (and a little inside a wardrobe), using a second low-passed copy of the bell crossfaded by line of sight, which also works with the web build's sample-based audio. Its tempo now has three speeds: slow while he wanders, quicker when he has heard something, frantic in a chase.
 - Smoke test grows from 25 to 43 checks (hiding, unseen vs seen, breath, wall muffling, bell tempo). Screenshot tour adds the wardrobe, the peek view and under the bed.
 - Reused from Harrow's Wake (pre-made, credited): the Kenney `bookcaseClosedDoors` model as the wardrobe. `bell_muffled.ogg` is a low-passed copy of the CC0 hand bell.
+
+## Day 2 - Mon 9 Nov 2026 (performance night)
+- **Browser lag on integrated graphics (reported from an i3 laptop).** Flashlight shadow is off on Web/mobile (it re-rendered the scene each frame). The one-piece floor and ceiling are now 4x4-cell chunks so each room light only touches nearby geometry. Item glint OmniLights replaced by emissive materials (one fewer light per item). max_lights_per_object capped at 4. Flicker lights cached in an array instead of walking the level every frame. Web is capped at 60 fps. F3 shows an FPS readout. The post pass already runs at the 320x240 viewport.
+- Smoke test still 43/43. Level/props milestone not started tonight; perf had priority.

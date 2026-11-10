@@ -20,6 +20,7 @@ window/stretch/aspect="expand"
 window/handheld/orientation=4
 
 [rendering]
+limits/opengl/max_lights_per_object=4
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"

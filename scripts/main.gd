@@ -78,6 +78,9 @@ var sfx: Dictionary = {}
 var heart_player: AudioStreamPlayer
 var amb_player: AudioStreamPlayer
 var post_mat: ShaderMaterial
+var flicker_lights: Array = []
+var fps_label: Label
+var show_fps := false
 var chase_on: bool = false
 var near_it: Dictionary = {}
 var hide_it: Dictionary = {}    # the spot the player is in, or empty
@@ -101,6 +104,15 @@ func _ready() -> void:
 	_build_sfx()
 	_build_environment()
 	_build_level()
+	if OS.has_feature("web"):
+		Engine.max_fps = 60
+	fps_label = Label.new()
+	fps_label.position = Vector2(2, 2)
+	fps_label.visible = false
+	var fl := CanvasLayer.new()
+	fl.layer = 100
+	fl.add_child(fps_label)
+	add_child(fl)
 	_build_hiding_spots()
 	_build_player()
 	_build_bellman()
@@ -222,8 +234,16 @@ func _build_level() -> void:
 	var w: int = MAP[0].length()
 	var h: int = MAP.size()
 	# base floor + ceiling
-	box(lvl, Vector3(w * CELL, 0.2, h * CELL), Vector3(w * CELL / 2.0, -0.12, h * CELL / 2.0), "concrete_floor_worn_001", Color(0.5, 0.48, 0.45))
-	box(lvl, Vector3(w * CELL, 0.2, h * CELL), Vector3(w * CELL / 2.0, WALL_H + 0.1, h * CELL / 2.0), "damaged_plaster", Color(0.4, 0.38, 0.36), false)
+	# floor + ceiling in chunks so a light only touches the chunks it reaches (GL Compatibility lights per object)
+	var CH := 4
+	for cy in range(0, h, CH):
+		for cx in range(0, w, CH):
+			var nx: int = mini(CH, w - cx)
+			var nz: int = mini(CH, h - cy)
+			var mx: float = (cx + nx / 2.0) * CELL
+			var mz: float = (cy + nz / 2.0) * CELL
+			box(lvl, Vector3(nx * CELL, 0.2, nz * CELL), Vector3(mx, -0.12, mz), "concrete_floor_worn_001", Color(0.5, 0.48, 0.45))
+			box(lvl, Vector3(nx * CELL, 0.2, nz * CELL), Vector3(mx, WALL_H + 0.1, mz), "damaged_plaster", Color(0.4, 0.38, 0.36), false)
 	# room floors + lights
 	for r in ROOMS:
 		var x0: float = r[1] * CELL
@@ -237,6 +257,8 @@ func _build_level() -> void:
 		lt.omni_range = maxf(x1 - x0, z1 - z0) * 0.55
 		lt.position = Vector3((x0 + x1) / 2.0, WALL_H - 0.4, (z0 + z1) / 2.0)
 		lt.set_meta("flicker", randf() < 0.5)
+		if lt.get_meta("flicker"):
+			flicker_lights.append(lt)
 		lvl.add_child(lt)
 	# walls: merge horizontal runs of '#' into single boxes
 	for y in h:
@@ -308,12 +330,12 @@ func _item_mesh(parent: Node3D, id: String, pos: Vector3) -> Node3D:
 	root.add_child(mi)
 	# a small pedestal/crate so items sit at hand height
 	Lib.prop(parent, "cardboardBoxClosed", Vector3(pos.x, 0, pos.z), randf() * TAU, 0.7)
-	var glint := OmniLight3D.new()
-	glint.light_color = Color(1.0, 0.85, 0.6)
-	glint.light_energy = 0.4
-	glint.omni_range = 1.4
-	glint.position.y = 0.3
-	root.add_child(glint)
+	# glint: emissive material instead of an extra light (cheaper on integrated GPUs)
+	var gm = mi.material_override
+	if gm is StandardMaterial3D:
+		gm.emission_enabled = true
+		gm.emission = Color(1.0, 0.85, 0.6)
+		gm.emission_energy_multiplier = 0.6
 	return root
 
 
@@ -868,6 +890,12 @@ func _win() -> void:
 
 
 # ---------------------------------------------------------------- loop
+func _input(ev: InputEvent) -> void:
+	if ev is InputEventKey and ev.pressed and not ev.echo and ev.keycode == KEY_F3:
+		show_fps = not show_fps
+		fps_label.visible = show_fps
+
+
 func _process(delta: float) -> void:
 	_layout_ui()
 	var playing := mode == "play"
@@ -893,6 +921,7 @@ func _process(delta: float) -> void:
 	post_mat.set_shader_parameter("panic", panic)
 	heart_player.volume_db = lerpf(-60.0, 0.0, panic) if panic > 0.01 else -80.0
 	# flicker some room lights
-	for n in $Level.get_children():
-		if n is OmniLight3D and n.get_meta("flicker", false):
-			n.light_energy = 0.7 if randf() > 0.03 else 0.1
+	for n in flicker_lights:
+		n.light_energy = 0.7 if randf() > 0.03 else 0.1
+	if show_fps and fps_label != null:
+		fps_label.text = "%d fps" % Engine.get_frames_per_second()

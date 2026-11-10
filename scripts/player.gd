@@ -52,7 +52,7 @@ func _ready() -> void:
 	flashlight.spot_range = 12.0
 	flashlight.spot_angle = 24.0
 	flashlight.spot_attenuation = 0.9
-	flashlight.shadow_enabled = true
+	flashlight.shadow_enabled = not (OS.has_feature("web") or OS.has_feature("mobile"))
 	flashlight.position = Vector3(0.12, -0.15, -0.1)
 	cam.add_child(flashlight)
 
