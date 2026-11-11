@@ -896,8 +896,17 @@ func _input(ev: InputEvent) -> void:
 		fps_label.visible = show_fps
 
 
+var was_captured := false
+
+
 func _process(delta: float) -> void:
 	_layout_ui()
+	# Browser: Esc releases pointer lock without the game seeing the key, so pause when capture is lost.
+	if OS.has_feature("web") and not touch.visible:
+		var cap := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+		if mode == "play" and was_captured and not cap:
+			toggle_pause()
+		was_captured = cap
 	var playing := mode == "play"
 	obj_label.visible = playing
 	msg_label.visible = playing and msg_t > 0.0

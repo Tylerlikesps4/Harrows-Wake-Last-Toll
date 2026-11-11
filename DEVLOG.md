@@ -20,3 +20,7 @@
 ## Day 2 - Mon 9 Nov 2026 (performance night)
 - **Browser lag on integrated graphics (reported from an i3 laptop).** Flashlight shadow is off on Web/mobile (it re-rendered the scene each frame). The one-piece floor and ceiling are now 4x4-cell chunks so each room light only touches nearby geometry. Item glint OmniLights replaced by emissive materials (one fewer light per item). max_lights_per_object capped at 4. Flicker lights cached in an array instead of walking the level every frame. Web is capped at 60 fps. F3 shows an FPS readout. The post pass already runs at the 320x240 viewport.
 - Smoke test still 43/43. Level/props milestone not started tonight; perf had priority.
+
+## Day 3 - Tue 10 Nov 2026 (bug-hunt night)
+- **Bug:** in the browser, Esc releases the mouse lock without the game seeing the key, so the Bellman kept hunting while the cursor was free. Losing mouse capture on Web now pauses the game (click/Enter resumes and recaptures).
+- Smoke 43/43. Scares, lore notes and the Bellman model are carried over to Wed.
