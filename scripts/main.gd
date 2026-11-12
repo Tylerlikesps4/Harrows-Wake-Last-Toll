@@ -685,9 +685,24 @@ func toggle_pause() -> void:
 	if mode == "play":
 		mode = "pause"
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		_show_overlay("PAUSED\n\n%s\n\nEnter / tap: resume\nQ: quit to title" % objective())
+		_show_pause()
 	elif mode == "pause":
 		_resume()
+
+
+var master_vol: float = 1.0
+
+
+func _show_pause() -> void:
+	_show_overlay("PAUSED\n\n%s\n\nVolume %d%%  (- / +)\nMouse sensitivity %.1f  ([ / ])\n\nEnter / tap: resume\nQ: quit to title" % [objective(), roundi(master_vol * 100.0), player.mouse_sens / 0.0025])
+
+
+func adjust_settings(dvol: float, dsens: float) -> void:
+	master_vol = clampf(master_vol + dvol, 0.0, 1.0)
+	player.mouse_sens = clampf(player.mouse_sens + dsens * 0.0025, 0.0005, 0.01)
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(master_vol, 0.0001)))
+	if mode == "pause":
+		_show_pause()
 
 
 func _resume() -> void:
@@ -738,6 +753,12 @@ func _unhandled_input(e: InputEvent) -> void:
 				_resume()
 			elif e is InputEventKey and e.pressed and e.physical_keycode == KEY_Q:
 				_to_title()
+			elif e is InputEventKey and e.pressed:
+				match e.physical_keycode:
+					KEY_MINUS, KEY_KP_SUBTRACT: adjust_settings(-0.1, 0.0)
+					KEY_EQUAL, KEY_KP_ADD: adjust_settings(0.1, 0.0)
+					KEY_BRACKETLEFT: adjust_settings(0.0, -0.25)
+					KEY_BRACKETRIGHT: adjust_settings(0.0, 0.25)
 		"read":
 			if e.is_action_pressed("use") or e.is_action_pressed("pause"):
 				_resume()

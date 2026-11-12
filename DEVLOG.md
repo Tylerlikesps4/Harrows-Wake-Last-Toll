@@ -24,3 +24,6 @@
 ## Day 3 - Tue 10 Nov 2026 (bug-hunt night)
 - **Bug:** in the browser, Esc releases the mouse lock without the game seeing the key, so the Bellman kept hunting while the cursor was free. Losing mouse capture on Web now pauses the game (click/Enter resumes and recaptures).
 - Smoke 43/43. Scares, lore notes and the Bellman model are carried over to Wed.
+
+## Day 4 - Wed 11 Nov 2026
+- Pause menu now has volume (- / +) and mouse sensitivity ([ / ]). Smoke 44/44. Smoke run clean, no new bugs found in the check pass. Music, scares, Bellman model and lore notes carry over to Thu.

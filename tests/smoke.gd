@@ -202,3 +202,7 @@ func _bell_audio_tests() -> void:
 	var fast: float = m.bellman.bell_interval()
 	ok(fast < slow, "bell rings faster in a chase (%.2f s vs %.2f s)" % [fast, slow])
 	m.bellman.rest()
+	# settings (pause menu)
+	m.adjust_settings(-0.3, 0.5)
+	ok(absf(m.master_vol - 0.7) < 0.01 and m.player.mouse_sens > 0.0025, "pause settings change volume and sensitivity")
+	m.adjust_settings(0.3, -0.5)
