@@ -72,4 +72,24 @@ func _run() -> void:
 	m.msg_t = 0.0
 	await wait(0.5)
 	await snap("10_under_bed")
+	m.leave_hide()
+	# the Bellman up close, lit by the torch
+	m.bellman.global_position = Vector3(16.0, 0, 15.0)
+	m.bellman.rotation.y = -PI / 2
+	await view(Vector3(13.2, 0, 15.0), PI / 2, 0.0)
+	await snap("11_bellman_close")
+	# a phone: wide screen with touch controls
+	m.touch.visible = true
+	get_window().size = Vector2i(1600, 720)
+	await view(Vector3(8.0, 0, 15.0), -PI / 2)
+	await wait(0.3)
+	await snap("12_touch_phone")
+	m.touch.visible = false
+	get_window().size = Vector2i(1280, 960)
+	# lights-out scare
+	m.scare("lights")
+	await wait(0.5)
+	await snap("13_lights_out")
+	m.lights_out_t = 0.0
+	m.brightness_i = 1
 	get_tree().quit()

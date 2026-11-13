@@ -36,12 +36,13 @@ func _ready() -> void:
 func _run() -> void:
 	await wait(0.5)
 	ok(m.mode == "title", "starts on the title screen")
+	ok(m.title_player != null and m.title_player.stream != null, "title music is loaded on the title screen")
 	m.start_game()
 	await wait(0.3)
 	ok(m.mode == "play", "game starts")
 	ok(m.player.is_on_floor() or m.player.global_position.y < 0.2, "player stands on the floor")
 	ok(m.bellman.state == "dormant", "Bellman dormant before the first pickup")
-	ok(m.interactables.size() == 11, "11 interactables (3 items, door, bell, note, 5 hiding spots): %d" % m.interactables.size())
+	ok(m.interactables.size() == 15, "15 interactables (3 items, door, bell, 5 notes, 5 hiding spots): %d" % m.interactables.size())
 
 	# walking moves the player and doesn't clip through walls
 	var p0: Vector3 = m.player.global_position
@@ -50,11 +51,43 @@ func _run() -> void:
 	Input.action_release("move_forward")
 	ok(m.player.global_position.distance_to(p0) > 1.0, "player walks forward")
 
-	# note
+	# notes: every one opens the reader with its own text, and a mouse click closes it
 	m.interact("note")
 	ok(m.mode == "read", "note opens the reader")
 	m.on_tap()
 	ok(m.mode == "play", "reader closes")
+	for nid in ["note_a", "note_b", "note_m", "note_i"]:
+		m.interact(nid)
+		ok(m.mode == "read" and m.overlay_label.text.length() > 60 and m.notes_read.has(nid), "%s opens with its own text" % nid)
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		m._unhandled_input(click)
+		ok(m.mode == "play", "a mouse click closes %s" % nid)
+	ok(m.notes_read.size() == 5, "all five notes can be found (%d)" % m.notes_read.size())
+	# pause: a click resumes (the browser releases the mouse on Esc), B changes the brightness
+	m.toggle_pause()
+	ok(m.mode == "pause", "pause menu opens")
+	var amb0: float = m.env.ambient_light_energy
+	m.cycle_brightness()
+	ok(absf(m.env.ambient_light_energy - amb0) > 0.05, "brightness setting changes the ambient light")
+	m.cycle_brightness()
+	m.cycle_brightness()
+	m.cycle_brightness()
+	var click2 := InputEventMouseButton.new()
+	click2.button_index = MOUSE_BUTTON_LEFT
+	click2.pressed = true
+	m._unhandled_input(click2)
+	ok(m.mode == "play", "a click resumes from the pause menu")
+	# the Bellman has his real model (animated mannequin)
+	ok(m.bellman.model != null and m.bellman.model.anim != null and m.bellman.model.anim.has_animation("Walk_Formal") and m.bellman.model.anim.has_animation("Jog_Fwd") and m.bellman.model.anim.has_animation("Idle_Torch"), "Bellman uses the animated model with walk, jog and idle")
+	# scares
+	m.scare("lights")
+	ok(m.lights_out_t > 3.0, "the lights-out scare starts")
+	m.lights_out_t = 0.0
+	m.scare("bunk")
+	m.scare("slam")
+	ok(m.scares_done.size() == 3, "scares are recorded as done")
 
 	# chapel is locked without the key
 	m.interact("bell")
@@ -102,12 +135,15 @@ func _run() -> void:
 	m.bellman.state = "wander"
 	await wait(0.5)
 	ok(m.mode == "dead", "the Bellman catches the player")
+	m.on_tap()
+	ok(m.mode == "dead", "the death screen ignores a tap in its first second (no accidental restart)")
 	m.mode = "play"
 	m.bellman.rest()
 	m.bellman.global_position = Vector3(45, 0, 3)
 
 	m.interact("bell")
 	ok(m.mode == "win", "ringing the bell wins")
+	ok(m.overlay_label.text.contains("Notes found: 5 / 5"), "win screen shows the stats")
 	ok(m.run_time > 0.0, "run time recorded")
 	await _bell_audio_tests()
 	print("SMOKE DONE")
@@ -179,8 +215,10 @@ func _hiding_tests() -> void:
 	m.enter_hide(b)
 	await wait(0.1)
 	ok(m.hiding() and m.hide_it["spot"] == "bed" and m.player.cam.global_position.y < 0.6, "player can hide under the infirmary bed")
+	m.touch.run_toggle = true
 	m.leave_hide()
 	ok(not m.hiding(), "player crawls out from under the bed")
+	ok(not m.touch.run_toggle, "BREATH toggle does not turn into a sprint after leaving a hiding spot")
 	m.player.stamina = 100.0
 	m.player.exhausted = false
 

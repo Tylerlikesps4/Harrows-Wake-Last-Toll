@@ -20,6 +20,8 @@ KEYBOARD + MOUSE
   Run (loud) ... Shift                  Sneak ..... Ctrl or C
   Use .......... E, Space or Enter      Light ..... F
   Pause ........ Esc or P               Fullscreen  F11
+  In the pause menu: - / + volume, [ / ] mouse sensitivity, B brightness.
+  A click (or Enter) resumes. F3 shows the frame rate.
 
 GAMEPAD (Xbox layout)
   Move: left stick   Look: right stick   Use: A   Run: B / L3

@@ -32,6 +32,8 @@ var bell_db := -2.0
 var hunt_spot = null                   # a hiding spot he saw (or heard) the player in
 var breath_t := 0.0
 var body: Node3D
+var model = null                       # the animated mannequin (scripts/actor_model.gd), null if it failed to load
+var cur_speed := 0.0
 
 
 func setup(rows, cell_size: float, player_node: Node3D, main_node: Node, bell_stream: AudioStream, muffled_stream: AudioStream = null) -> void:
@@ -98,10 +100,22 @@ func _part(mesh: Mesh, mat: Material, pos: Vector3) -> void:
 	body.add_child(mi)
 
 
-## Greybox body: a tall coat, a pale mask and the hand bell. Real model later.
+## Fallback greybox body: a tall coat, a pale mask and the hand bell.
 func _build_body() -> void:
 	body = Node3D.new()
 	add_child(body)
+	# The real model: Quaternius' CC0 mannequin in a long coat and a cracked porcelain mask,
+	# carrying the hand bell. Falls back to the greybox below if it can't be built.
+	var am = load("res://scripts/actor_model.gd")
+	if am != null:
+		var mdl: Node3D = Node3D.new()
+		mdl.set_script(am)
+		add_child(mdl)
+		mdl.setup("bellman", self)
+		if mdl.anim != null and mdl.skel != null:
+			model = mdl
+			return
+		mdl.queue_free()
 	var coat := _mat(Color(0.07, 0.06, 0.06))
 	var mask := _mat(Color(0.85, 0.82, 0.74))
 	mask.emission_enabled = true
@@ -115,6 +129,17 @@ func _build_body() -> void:
 	_part(_cyl(0.2, 0.2, 0.32), coat, Vector3(0, 2.3, 0))
 	_part(_cyl(0.36, 0.36, 0.03), coat, Vector3(0, 2.15, 0))
 	_part(_cyl(0.04, 0.12, 0.18), brass, Vector3(0.45, 1.05, -0.1))
+
+
+func _animate() -> void:
+	if model == null:
+		return
+	if cur_speed < 0.1:
+		model.play_anim("Idle_Torch", 0.3)
+	elif state == "chase":
+		model.play_anim("Jog_Fwd", 0.2, clampf(cur_speed / 3.0, 0.6, 1.6))
+	else:
+		model.play_anim("Walk_Formal", 0.25, clampf(cur_speed / 1.2, 0.6, 1.6))
 
 
 func wake() -> void:
@@ -377,6 +402,8 @@ func _physics_process(delta: float) -> void:
 	if v.length_squared() > 0.01:
 		var target_yaw := atan2(-v.x, -v.z)
 		rotation = Vector3(0, lerp_angle(rotation.y, target_yaw, minf(1.0, dt * 8.0)), 0)
+	cur_speed = v.length()
+	_animate()
 	if body != null:
 		var moving := v.length_squared() > 0.01
 		body.position = Vector3(0, absf(sin(Time.get_ticks_msec() * 0.006)) * (0.04 if moving else 0.0), 0)

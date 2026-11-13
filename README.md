@@ -39,7 +39,7 @@ Standard Godot 4.3 (no .NET needed; the whole game is GDScript).
 - `tests/` - smoke test and screenshot tour
 
 ## Jam rules and what was reused
-Everything about this game (design, map, core loop, AI, player controller, UI) was made during the jam window. Pre-made material reused from Harrow's Wake, as the jam allows: the CC0 textures, props and sound effects listed in [CREDITS.md](CREDITS.md), the two PSX shaders and the `lib.gd` prop/material helper. See [DEVLOG.md](DEVLOG.md).
+Everything about this game (design, map, core loop, AI, player controller, UI) was made during the jam window. Pre-made material reused from Harrow's Wake, as the jam allows: the CC0 textures, props and sound effects listed in [CREDITS.md](CREDITS.md), the two PSX shaders, the `lib.gd` prop/material helper and the `actor_model.gd` character helper with the CC0 mannequin model. See [DEVLOG.md](DEVLOG.md).
 
 AI use: made with AI assistance (Hark), as the jam allows.
 

@@ -11,20 +11,20 @@ const CELL := 2.0
 const WALL_H := 3.0
 
 # '#' wall, 'L' locked chapel door, 'S' start, 'W' the Bellman,
-# 'r' bell rope, 'c' clapper, 'k' chapel key, 'B' chapel bell, 'n' note
+# 'r' bell rope, 'c' clapper, 'k' chapel key, 'B' chapel bell, 'n' 'a' 'b' 'm' 'i' notes
 const MAP := [
 	"##########################",
 	"#......#........#........#",
 	"#..r...#........#....c...#",
-	"#......#........#........#",
-	"#......#........#........#",
+	"#......#.b......#........#",
+	"#a.....#........#........#",
 	"###.#######.#########.####",
 	"#........................#",
 	"#.S.n....................#",
 	"#........................#",
 	"######.#####L######.######",
 	"#..........#...#.........#",
-	"#....k.....#...#.........#",
+	"#.m..k.....#...#.....i...#",
 	"#..........#.B.#.....W...#",
 	"#..........#...#.........#",
 	"##########################",
@@ -58,6 +58,14 @@ const HIDE_SPOTS := [
 	["bed", 17.0, 13.2],
 ]
 
+# Lore notes: map char -> [id, text]. 'n' is the Matron's note by the start.
+const NOTES := {
+	"n": ["note", "Matron Agnes, 3rd Nov.\nWhen the hand bell rings in the halls, the children are not to leave their beds.\nOnly the great bell in the chapel sends him away. I have taken the rope and the clapper and locked the chapel. God forgive me. - M."],
+	"a": ["note_a", "Scratched into a bedpost, then pencilled on a scrap:\nTom A. aged 8. Sister says do not look at him. I looked. There is no face under the mask, only stitches.\nIf you can read this, run when the bell goes quick."],
+	"b": ["note_b", "Night watch roster, 3rd Nov.\nSister Mary: the bell rope is cut. Sister Ruth: the clapper is gone from the chapel. Matron has the only key.\nHe cannot see into a wardrobe unless he watches you climb in. Do not breathe loud. - R."],
+	"m": ["note_m", "Ledger of St. Agnes.\nTwelve children in the spring. Eleven in the autumn. Our caretaker rings a hand bell to call them to bed, and he has never once been seen to eat, or sleep, or leave.\nI have written to the Bishop. No one has come."],
+	"i": ["note_i", "Infirmary chart. Patient: Tom A., 8. Fever; cannot be woken.\nHe keeps saying a man with a bell stands at the foot of his bed. The only place he sleeps quietly is under it.\n- Dr. Hale"],
+}
 const NOTE_TEXT := "Matron Agnes, 3rd Nov.\nWhen the hand bell rings in the halls, the children are not to leave their beds.\nOnly the great bell in the chapel sends him away. I have taken the rope and the clapper and locked the chapel. God forgive me. - M."
 
 static var skip_title: bool = false
@@ -85,6 +93,19 @@ var chase_on: bool = false
 var near_it: Dictionary = {}
 var hide_it: Dictionary = {}    # the spot the player is in, or empty
 var bed_shade: ColorRect
+var room_lights: Array = []
+var lights_out_t: float = 0.0
+var scares_done: Dictionary = {}
+var scare_check_t: float = 0.0
+var mode_t: float = 0.0          # seconds in the current mode (guards the death/win screens against button-mashing)
+var notes_read: Dictionary = {}
+var stat_hides: int = 0
+var stat_chases: int = 0
+var brightness_i: int = 1
+var title_player: AudioStreamPlayer
+const BRIGHTNESS := [0.8, 1.0, 1.3, 1.7]
+const AMBIENT_BASE := 1.6
+const ROOM_LIGHT := 0.95
 
 # UI
 var hud: CanvasLayer
@@ -219,10 +240,10 @@ func _build_environment() -> void:
 	env.background_color = Color(0, 0, 0)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.13, 0.13, 0.17)
-	env.ambient_light_energy = 0.9
+	env.ambient_light_energy = AMBIENT_BASE
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.03, 0.03, 0.04)
-	env.fog_density = 0.09
+	env.fog_density = 0.07
 	we.environment = env
 	add_child(we)
 
@@ -253,13 +274,14 @@ func _build_level() -> void:
 		box(lvl, Vector3(x1 - x0, 0.1, z1 - z0), Vector3((x0 + x1) / 2.0, -0.04, (z0 + z1) / 2.0), r[5], Color(0.75, 0.72, 0.68), false)
 		var lt := OmniLight3D.new()
 		lt.light_color = Color(1.0, 0.72, 0.45) if r[0] != "Chapel" else Color(0.6, 0.7, 1.0)
-		lt.light_energy = 0.7
+		lt.light_energy = ROOM_LIGHT
 		lt.omni_range = maxf(x1 - x0, z1 - z0) * 0.55
 		lt.position = Vector3((x0 + x1) / 2.0, WALL_H - 0.4, (z0 + z1) / 2.0)
 		lt.set_meta("flicker", randf() < 0.5)
 		if lt.get_meta("flicker"):
 			flicker_lights.append(lt)
 		lvl.add_child(lt)
+		room_lights.append(lt)
 	# walls: merge horizontal runs of '#' into single boxes
 	for y in h:
 		var row: String = MAP[y]
@@ -294,11 +316,12 @@ func _build_level() -> void:
 				"B":
 					var bell := _chapel_bell(lvl, p)
 					interactables.append({"id": "bell", "kind": "bell", "pos": p + Vector3(0, 1.0, 0), "node": bell})
-				"n":
+				"n", "a", "b", "m", "i":
 					var paper := box(lvl, Vector3(0.3, 0.02, 0.4), p + Vector3(0, 0.76, 0), "plastered_wall_02", Color(0.9, 0.86, 0.75), false)
 					paper.material_override = Lib.mat("plastered_wall_02", Color(0.9, 0.86, 0.75), false, 1.0, 0.4)
 					Lib.prop(lvl, "desk", p, 0.0, 1.2)
-					interactables.append({"id": "note", "kind": "note", "pos": p + Vector3(0, 0.75, 0), "node": paper})
+					var nd: Array = NOTES[ch]
+					interactables.append({"id": nd[0], "kind": "note", "pos": p + Vector3(0, 0.75, 0), "node": paper, "text": nd[1]})
 	_dress_rooms(lvl)
 
 
@@ -426,6 +449,7 @@ func enter_hide(it: Dictionary) -> void:
 	# He only knows where you went if he could see you get in.
 	var seen: bool = bellman.state == "chase" or bellman.can_see_player()
 	hide_it = it
+	stat_hides += 1
 	player.hidden = true
 	player.hide_yaw = it["look_yaw"]
 	player.hide_eye = it["eye"]
@@ -448,6 +472,8 @@ func leave_hide() -> void:
 	hide_it = {}
 	player.hidden = false
 	player.holding_breath = false
+	if touch != null:
+		touch.run_toggle = false      # the BREATH toggle must not turn into a sprint
 	player.global_position = it["out"]
 	player.set_look(it["look_yaw"], 0.0)
 	play_sfx("creak", null, -8.0, 1.05)
@@ -663,15 +689,28 @@ func _input_hint() -> String:
 	return "Tap to begin" if touch.visible else "Press E / Enter / (A) to begin"
 
 
+func _play_title_music(vol: float) -> void:
+	if title_player == null:
+		title_player = _loop("title_music", vol)
+	else:
+		title_player.volume_db = vol
+		title_player.play()
+
+
 func _show_title() -> void:
 	mode = "title"
+	_play_title_music(-10.0)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var best := "" if best_time < 0.0 else "\nBest escape: %s" % _fmt_time(best_time)
-	_show_overlay("HARROW'S WAKE\nLAST TOLL\n\nOne night. One bell. Ring it before he finds you.\n\n%s%s\n\nWASD move  Shift run  Ctrl sneak  E use  F light  Esc pause" % [_input_hint(), best], 0.82)
+	_show_overlay("HARROW'S WAKE\nLAST TOLL\n\nOne night. One bell. Ring it before he finds you.\n\n%s%s\n\nWASD move  Shift run  Ctrl sneak\nE use  F light  Esc pause" % [_input_hint(), best], 0.82)
 
 
 func start_game() -> void:
 	mode = "play"
+	if title_player != null and title_player.playing:
+		var tw := create_tween()
+		tw.tween_property(title_player, "volume_db", -60.0, 1.5)
+		tw.tween_callback(title_player.stop)
 	_hide_overlay()
 	run_time = 0.0
 	fade = 1.0
@@ -694,13 +733,20 @@ var master_vol: float = 1.0
 
 
 func _show_pause() -> void:
-	_show_overlay("PAUSED\n\n%s\n\nVolume %d%%  (- / +)\nMouse sensitivity %.1f  ([ / ])\n\nEnter / tap: resume\nQ: quit to title" % [objective(), roundi(master_vol * 100.0), player.mouse_sens / 0.0025])
+	_show_overlay("PAUSED\n\n%s\n\nVolume %d%%  (- / +)\nMouse sensitivity %.1f  ([ / ])\nBrightness %d%%  (B)\nNotes found %d / %d\n\nClick / Enter / tap: resume\nQ: quit to title" % [objective(), roundi(master_vol * 100.0), player.mouse_sens / 0.0025, roundi(BRIGHTNESS[brightness_i] * 100.0), notes_read.size(), NOTES.size()])
 
 
 func adjust_settings(dvol: float, dsens: float) -> void:
 	master_vol = clampf(master_vol + dvol, 0.0, 1.0)
 	player.mouse_sens = clampf(player.mouse_sens + dsens * 0.0025, 0.0005, 0.01)
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(master_vol, 0.0001)))
+	if mode == "pause":
+		_show_pause()
+
+
+func cycle_brightness() -> void:
+	brightness_i = (brightness_i + 1) % BRIGHTNESS.size()
+	env.ambient_light_energy = AMBIENT_BASE * BRIGHTNESS[brightness_i]
 	if mode == "pause":
 		_show_pause()
 
@@ -712,12 +758,20 @@ func _resume() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+func _dismiss_ok() -> bool:
+	return mode_t > 1.0
+
+
 func on_tap() -> void:
 	match mode:
 		"title": start_game()
 		"pause", "read": _resume()
-		"dead": restart()
-		"win": _to_title()
+		"dead":
+			if _dismiss_ok():
+				restart()
+		"win":
+			if _dismiss_ok():
+				_to_title()
 
 
 func restart() -> void:
@@ -749,8 +803,10 @@ func _unhandled_input(e: InputEvent) -> void:
 			elif e.is_action_pressed("light"):
 				player.toggle_light()
 		"pause":
-			if e.is_action_pressed("use") or e.is_action_pressed("pause"):
+			if e.is_action_pressed("use") or e.is_action_pressed("pause") or (e is InputEventMouseButton and e.pressed):
 				_resume()
+			elif e is InputEventKey and e.pressed and e.physical_keycode == KEY_B:
+				cycle_brightness()
 			elif e is InputEventKey and e.pressed and e.physical_keycode == KEY_Q:
 				_to_title()
 			elif e is InputEventKey and e.pressed:
@@ -760,13 +816,13 @@ func _unhandled_input(e: InputEvent) -> void:
 					KEY_BRACKETLEFT: adjust_settings(0.0, -0.25)
 					KEY_BRACKETRIGHT: adjust_settings(0.0, 0.25)
 		"read":
-			if e.is_action_pressed("use") or e.is_action_pressed("pause"):
+			if e.is_action_pressed("use") or e.is_action_pressed("pause") or (e is InputEventMouseButton and e.pressed):
 				_resume()
 		"dead":
-			if e.is_action_pressed("use"):
+			if (e.is_action_pressed("use") or (e is InputEventMouseButton and e.pressed)) and _dismiss_ok():
 				restart()
 		"win":
-			if e.is_action_pressed("use"):
+			if (e.is_action_pressed("use") or (e is InputEventMouseButton and e.pressed)) and _dismiss_ok():
 				_to_title()
 
 
@@ -837,6 +893,12 @@ func interact(id: String) -> void:
 			interactables.erase(it)
 			play_sfx("pickup", null, -4.0)
 			make_noise(player.global_position, 6.0)
+			if id == "key":
+				# the great bell shivers on its beam, far away
+				get_tree().create_timer(2.0).timeout.connect(func():
+					if mode == "play":
+						play_sfx("bell_toll", _bell_pos(), 4.0, 0.55)
+						show_message("Far away, the great bell shivers on its beam.", 3.5))
 			if inventory.size() == 1:
 				# the first thing taken wakes him
 				bellman.wake()
@@ -864,14 +926,56 @@ func interact(id: String) -> void:
 			enter_hide(it)
 		"note":
 			mode = "read"
+			notes_read[it["id"]] = true
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			play_sfx("menu", null, -8.0)
-			_show_overlay(NOTE_TEXT + "\n\n(continue)", 0.85)
+			_show_overlay(String(it.get("text", NOTE_TEXT)) + "\n\n(continue)", 0.85)
+
+
+func _bell_pos() -> Vector3:
+	for i in interactables:
+		if i["id"] == "bell":
+			return i["pos"]
+	return Vector3(27.0, 2.0, 25.0)
+
+
+# ---------------------------------------------------------------- scares
+func scare(id: String) -> void:
+	scares_done[id] = true
+	match id:
+		"lights":
+			lights_out_t = 3.2
+			play_sfx("glitch", null, -4.0, 0.6)
+		"bunk":
+			play_sfx("creak", Vector3(10.8, 1.2, 3.2), 3.0, 0.65)
+			show_message("Something creaks in the dark above you.", 3.0)
+		"slam":
+			var far := Vector3(44.0, 1.2, 24.0) if player.global_position.x < 26.0 else Vector3(6.0, 1.2, 24.0)
+			play_sfx("slam", far, 6.0, 0.75)
+
+
+func _scares(delta: float) -> void:
+	if lights_out_t > 0.0:
+		lights_out_t -= delta
+	if mode != "play":
+		return
+	scare_check_t -= delta
+	if scare_check_t > 0.0:
+		return
+	scare_check_t = 0.25
+	var room := room_name(player.global_position)
+	if room == "Dormitory" and not scares_done.has("bunk"):
+		scare("bunk")
+	elif room == "Refectory" and not scares_done.has("lights") and not inventory.is_empty():
+		scare("lights")
+	elif room == "Main Hall" and not scares_done.has("slam") and inventory.size() >= 2 and run_time > 45.0:
+		scare("slam")
 
 
 # ---------------------------------------------------------------- outcomes
 func on_chase_start() -> void:
 	chase_on = true
+	stat_chases += 1
 	play_sfx("sting", null, -2.0)
 
 
@@ -887,6 +991,7 @@ func caught() -> void:
 
 func _die(text: String) -> void:
 	mode = "dead"
+	mode_t = 0.0
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	play_sfx("bell_roar", null, 0.0)
 	play_sfx("scream", null, -6.0)
@@ -900,6 +1005,7 @@ func _fmt_time(t: float) -> String:
 
 func _win() -> void:
 	mode = "win"
+	mode_t = 0.0
 	inventory.append("bell")
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	bellman.rest()
@@ -907,7 +1013,10 @@ func _win() -> void:
 		best_time = run_time
 	for i in 3:
 		get_tree().create_timer(i * 1.6).timeout.connect(func(): play_sfx("bell_toll", null, 0.0, 0.8))
-	_show_overlay("THE LAST TOLL\n\nThe great bell rings out over St. Agnes.\nIn the hall, a hand bell answers once, and falls silent.\n\nYou escaped in %s.\n\nA Super Free AI Game Jam #2 game. Made in Godot.\n%s" % [_fmt_time(run_time), "Tap for the title" if touch.visible else "Press E / Enter for the title"], 0.88)
+	get_tree().create_timer(6.0).timeout.connect(func():
+		if mode == "win":
+			_play_title_music(-12.0))
+	_show_overlay("THE LAST TOLL\n\nThe great bell rings out over St. Agnes.\nIn the hall, a hand bell answers once, and falls silent.\n\nYou escaped in %s.\nNotes found: %d / %d.  Hid %d time%s.  He saw you %d time%s.\n\nA Super Free AI Game Jam #2 game. Made in Godot.\n%s" % [_fmt_time(run_time), notes_read.size(), NOTES.size(), stat_hides, "" if stat_hides == 1 else "s", stat_chases, "" if stat_chases == 1 else "s", "Tap for the title" if touch.visible else "Press E / Enter for the title"], 0.88)
 
 
 # ---------------------------------------------------------------- loop
@@ -931,6 +1040,7 @@ func _process(delta: float) -> void:
 	var playing := mode == "play"
 	obj_label.visible = playing
 	msg_label.visible = playing and msg_t > 0.0
+	mode_t += delta
 	if mode == "play":
 		run_time += delta
 		msg_t -= delta
@@ -950,8 +1060,15 @@ func _process(delta: float) -> void:
 	var panic := clampf(1.0 - (d - 2.0) / 8.0, 0.0, 1.0) if mode == "play" else 0.0
 	post_mat.set_shader_parameter("panic", panic)
 	heart_player.volume_db = lerpf(-60.0, 0.0, panic) if panic > 0.01 else -80.0
-	# flicker some room lights
-	for n in flicker_lights:
-		n.light_energy = 0.7 if randf() > 0.03 else 0.1
+	# room lights: some flicker; a scare can kill them all for a few seconds
+	_scares(delta)
+	var gain: float = BRIGHTNESS[brightness_i]
+	for n in room_lights:
+		if lights_out_t > 0.0:
+			n.light_energy = 0.0 if randf() > 0.12 else 0.35 * gain
+		elif n.get_meta("flicker"):
+			n.light_energy = ROOM_LIGHT * gain if randf() > 0.03 else 0.1
+		else:
+			n.light_energy = ROOM_LIGHT * gain
 	if show_fps and fps_label != null:
 		fps_label.text = "%d fps" % Engine.get_frames_per_second()

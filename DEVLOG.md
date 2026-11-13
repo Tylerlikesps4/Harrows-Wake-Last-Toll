@@ -27,3 +27,20 @@
 
 ## Day 4 - Wed 11 Nov 2026
 - Pause menu now has volume (- / +) and mouse sensitivity ([ / ]). Smoke 44/44. Smoke run clean, no new bugs found in the check pass. Music, scares, Bellman model and lore notes carry over to Thu.
+
+## Day 5 - Thu 12 Nov 2026 (look, scares, lore, music)
+Bug-hunt pass first (smoke run, screenshot tour, read through the scripts):
+- **Bug:** on the browser build, Esc frees the mouse and pauses, but clicking did nothing to resume (only Enter/Esc did), and the note reader also only closed with a key. A mouse click now resumes from pause and closes notes.
+- **Bug:** tapping or clicking just as the Bellman caught you could instantly restart the run (or skip the win screen) before you read it. The death and win screens now ignore input for their first second.
+- **Bug:** on phones, using the BREATH toggle in a hiding spot and then leaving left the toggle on, so you sprinted straight out. Leaving a hiding spot now clears it.
+- **Too dark to read:** the halls were nearly black in the screenshot tour. Ambient light is up and the fog thinner. There is now a Brightness setting in the pause menu (B).
+- Checked, no change needed: `LastToll-Web.zip` has `index.html` at its root and the export has threads off (no SharedArrayBuffer), items are all reachable, the Bellman can path to every item and into the chapel once opened, the touch buttons fit a 20:9 phone screen in the tour (new shot 12), and the BREATH button works.
+- Each fix has a smoke check.
+
+New tonight:
+- **The Bellman has his real body.** The greybox is replaced with the animated CC0 mannequin (Quaternius, from Harrow's Wake) in a long coat, top hat, cracked porcelain mask and his hand bell. He idles with his bell, walks formally and jogs when he chases you. Reused code helper: `scripts/actor_model.gd` and `assets/models/mannequin.glb` from Harrow's Wake (pre-made, CC0 model, credited in CREDITS.md).
+- **Four more lore notes** (a child's scratched warning in the dormitory, the night-watch roster in the refectory, the Matron's ledger, the infirmary chart), five in all; the win screen counts them.
+- **Three scares:** a creak above you in the dormitory, the lights die for a few seconds when you first enter the refectory with something in your hands, and a far door slams across the hall once you have two items. Taking the key makes the great bell shiver on its own, far away.
+- **Win screen stats:** time, notes found, times you hid, times he saw you.
+- **Music:** an original music-box lullaby in A minor over a drone, wind and a far-off bell, made this week with numpy (`tools/music/last_toll_theme.py`, GPL-3.0-or-later). Plays on the title screen and again after you ring the bell.
+- Smoke test grows from 44 to 63 checks.

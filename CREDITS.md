@@ -34,3 +34,9 @@ All from Poly Haven (https://polyhaven.com/license, CC0): old_wood_floor, decrep
 
 ## Code
 Everything else (game design, map, AI, player, UI): Copyright (C) 2026 Tylerlikesps4, GNU GPL v3 (see LICENSE). Made during Super Free AI Game Jam #2 with AI assistance (Hark). Engine: Godot 4.3 (MIT).
+
+## Music
+`assets/audio/title_music.ogg` is original music made during the jam week: a music-box lullaby, drone, wind and far bell synthesised in numpy. Source: `tools/music/last_toll_theme.py`. Copyright (C) 2026 Tylerlikesps4, GPL-3.0-or-later like the code.
+
+## Models and code helpers reused from Harrow's Wake
+`assets/models/mannequin.glb` (Quaternius, CC0, listed above) is the Bellman's body; `scripts/actor_model.gd` (dresses and animates it) is a code helper from Harrow's Wake.
