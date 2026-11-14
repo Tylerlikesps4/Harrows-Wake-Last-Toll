@@ -44,3 +44,6 @@ New tonight:
 - **Win screen stats:** time, notes found, times you hid, times he saw you.
 - **Music:** an original music-box lullaby in A minor over a drone, wind and a far-off bell, made this week with numpy (`tools/music/last_toll_theme.py`, GPL-3.0-or-later). Plays on the title screen and again after you ring the bell.
 - Smoke test grows from 44 to 63 checks.
+
+## Day 6 - Fri 13 Nov 2026 (final)
+- Final check pass: smoke test 63/63 clean, no new bugs found. No gameplay changes; this is the submission build.
