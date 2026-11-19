@@ -84,8 +84,10 @@ func _physics_process(delta: float) -> void:
 		return
 	# look: gamepad right stick + touch drag
 	var rs := Input.get_vector("look_left", "look_right", "look_up", "look_down")
-	yaw -= rs.x * 2.6 * delta + touch_look.x * 0.006
-	pitch = clampf(pitch - rs.y * 1.8 * delta - touch_look.y * 0.006, -1.3, 1.3)
+	# build-9: touch look was ~4x too fast on phones; it now follows the look sensitivity setting
+	var tk := mouse_sens * 0.6
+	yaw -= rs.x * 2.6 * delta + touch_look.x * tk
+	pitch = clampf(pitch - rs.y * 1.8 * delta - touch_look.y * tk, -1.3, 1.3)
 	touch_look = Vector2.ZERO
 	# a hiding child keeps the torch covered
 	flashlight.visible = light_on and not hidden

@@ -4,6 +4,6 @@ Smoke: `godot --headless -- --smoke` (63 PASS baseline).
 - [x] 1 Bell pickup crash: guarded freed nodes, double pickup, timers after scene reload (untested on device)
 - [x] 2 Bellman walk-through: player mask +4, bellman mask +8, contact = wake/catch, catch_range 1.15
 - [x] 3 iOS Safari freeze (UNTESTED on device): audio deferred to user gesture, web low-quality preset (no shadows, light distance-fade, 30fps mobile), shadow atlas .web=512; already compat renderer, threads off, etc2_astc on
-- [ ] 4 Touch sensitivity
+- [x] 4 Touch look ~4x slower, follows look sensitivity; pause-menu slider (touch + mouse)
 - [ ] 5 Web FPS cap / low preset
 - [ ] Export build-9 zip -> /workspace/work/last-toll/build-9-web.zip

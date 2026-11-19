@@ -698,6 +698,7 @@ func show_message(t: String, secs: float = 3.5) -> void:
 
 
 func _show_overlay(t: String, alpha: float = 0.75) -> void:
+	_show_sens_slider(false)
 	overlay.visible = true
 	overlay.color = Color(0, 0, 0, alpha)
 	overlay_label.visible = true
@@ -705,6 +706,7 @@ func _show_overlay(t: String, alpha: float = 0.75) -> void:
 
 
 func _hide_overlay() -> void:
+	_show_sens_slider(false)
 	overlay.visible = false
 	overlay_label.visible = false
 
@@ -778,7 +780,36 @@ var master_vol: float = 1.0
 
 
 func _show_pause() -> void:
-	_show_overlay("PAUSED\n\n%s\n\nVolume %d%%  (- / +)\nMouse sensitivity %.1f  ([ / ])\nBrightness %d%%  (B)\nNotes found %d / %d\n\nClick / Enter / tap: resume\nQ: quit to title" % [objective(), roundi(master_vol * 100.0), player.mouse_sens / 0.0025, roundi(BRIGHTNESS[brightness_i] * 100.0), notes_read.size(), NOTES.size()])
+	_show_overlay("PAUSED\n\n%s\n\nVolume %d%%  (- / +)\nLook sensitivity %.1f  ([ / ] or slider)\nBrightness %d%%  (B)\nNotes found %d / %d\n\nClick / Enter / tap: resume\nQ: quit to title" % [objective(), roundi(master_vol * 100.0), player.mouse_sens / 0.0025, roundi(BRIGHTNESS[brightness_i] * 100.0), notes_read.size(), NOTES.size()])
+	_show_sens_slider(true)
+
+
+var sens_slider: HSlider
+
+
+func _show_sens_slider(on: bool) -> void:
+	if sens_slider == null:
+		if not on:
+			return
+		var cl := CanvasLayer.new()
+		cl.layer = 101
+		add_child(cl)
+		sens_slider = HSlider.new()
+		sens_slider.min_value = 0.2
+		sens_slider.max_value = 4.0
+		sens_slider.step = 0.1
+		sens_slider.custom_minimum_size = Vector2(140, 18)
+		sens_slider.size = Vector2(140, 18)
+		sens_slider.mouse_filter = Control.MOUSE_FILTER_STOP
+		cl.add_child(sens_slider)
+		sens_slider.value_changed.connect(func(v: float):
+			player.mouse_sens = v * 0.0025
+			if mode == "pause":
+				_show_pause())
+	var vs := get_viewport().get_visible_rect().size
+	sens_slider.position = Vector2((vs.x - 140.0) / 2.0, vs.y - 26.0)
+	sens_slider.set_value_no_signal(player.mouse_sens / 0.0025)
+	sens_slider.visible = on
 
 
 func adjust_settings(dvol: float, dsens: float) -> void:
@@ -1075,6 +1106,14 @@ func _win() -> void:
 
 # ---------------------------------------------------------------- loop
 func _input(ev: InputEvent) -> void:
+	# build-9: touch doesn't emulate mouse here, so drive the pause-menu slider from touches directly
+	if mode == "pause" and sens_slider != null and sens_slider.visible and (ev is InputEventScreenTouch or ev is InputEventScreenDrag):
+		var r := Rect2(sens_slider.position - Vector2(10, 10), sens_slider.size + Vector2(20, 20))
+		if r.has_point(ev.position):
+			var t := clampf((ev.position.x - sens_slider.position.x) / sens_slider.size.x, 0.0, 1.0)
+			sens_slider.value = lerpf(sens_slider.min_value, sens_slider.max_value, t)
+			get_viewport().set_input_as_handled()
+			return
 	if not audio_unlocked and ((ev is InputEventMouseButton or ev is InputEventScreenTouch or ev is InputEventKey or ev is InputEventJoypadButton) and ev.is_pressed()):
 		audio_unlocked = true
 		if pending_title_vol != null and mode == "title":
