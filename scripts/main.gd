@@ -548,6 +548,8 @@ func _loop(n: String, vol: float) -> AudioStreamPlayer:
 func play_sfx(n: String, pos = null, vol: float = 0.0, pitch: float = 1.0) -> void:
 	if not sfx.has(n) or sfx[n] == null:
 		return
+	if not is_inside_tree():
+		return
 	if pos == null:
 		var a := AudioStreamPlayer.new()
 		a.stream = sfx[n]
@@ -885,24 +887,31 @@ func interact(id: String) -> void:
 		return
 	match it["kind"]:
 		"item":
+			# build-9: guard against double pickup (touch + key same frame) and freed nodes
+			interactables.erase(it)
+			if inventory.has(id):
+				return
 			for k in ITEMS:
 				if ITEMS[k][0] == id:
 					inventory.append(id)
 					show_message("%s\n%s" % [ITEMS[k][1], ITEMS[k][2]], 5.0)
-			(it["node"] as Node3D).queue_free()
-			interactables.erase(it)
+			var item_node = it.get("node")
+			if item_node != null and is_instance_valid(item_node):
+				(item_node as Node).queue_free()
 			play_sfx("pickup", null, -4.0)
 			make_noise(player.global_position, 6.0)
 			if id == "key":
 				# the great bell shivers on its beam, far away
 				get_tree().create_timer(2.0).timeout.connect(func():
-					if mode == "play":
+					if is_instance_valid(self) and is_inside_tree() and mode == "play":
 						play_sfx("bell_toll", _bell_pos(), 4.0, 0.55)
 						show_message("Far away, the great bell shivers on its beam.", 3.5))
-			if inventory.size() == 1:
+			if inventory.size() == 1 and bellman != null and is_instance_valid(bellman):
 				# the first thing taken wakes him
 				bellman.wake()
-				get_tree().create_timer(1.6).timeout.connect(func(): play_sfx("bell", bellman.global_position, 6.0, 0.85))
+				get_tree().create_timer(1.6).timeout.connect(func():
+					if is_instance_valid(self) and is_inside_tree() and bellman != null and is_instance_valid(bellman) and bellman.is_inside_tree():
+						play_sfx("bell", bellman.global_position, 6.0, 0.85))
 		"door":
 			if not inventory.has("key"):
 				play_sfx("creak", null, -6.0)
@@ -911,8 +920,10 @@ func interact(id: String) -> void:
 			chapel_open = true
 			play_sfx("unlock", null, -2.0)
 			play_sfx("door", null, -4.0)
-			(it["node"] as Node3D).queue_free()
 			interactables.erase(it)
+			var door_node = it.get("node")
+			if door_node != null and is_instance_valid(door_node):
+				(door_node as Node).queue_free()
 			var c := cell_of(it["pos"])
 			bellman.set_cell(c.x, c.y, ".")
 			make_noise(player.global_position, 9.0)
