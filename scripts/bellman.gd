@@ -9,7 +9,7 @@ const DIRS := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 var state := "dormant" # dormant, wander, investigate, chase, search
 var walk_speed := 1.35
 var chase_speed := 3.15
-var catch_range := 1.05
+var catch_range := 1.15
 var sight_range := 13.0
 
 var grid: Array = [] # Array of rows, each an Array of one-char Strings
@@ -48,7 +48,7 @@ func setup(rows, cell_size: float, player_node: Node3D, main_node: Node, bell_st
 	main = main_node
 	rng.randomize()
 	collision_layer = 4
-	collision_mask = 1
+	collision_mask = 1 | 8   # build-9: 8 = player, so he cannot ghost through them
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.35

@@ -32,7 +32,7 @@ const EYE := 1.55
 
 func _ready() -> void:
 	collision_layer = 8
-	collision_mask = 1 | 2
+	collision_mask = 1 | 2 | 4   # build-9: 4 = the Bellman, so the player can no longer walk through him
 	var cs := CollisionShape3D.new()
 	var sh := CapsuleShape3D.new()
 	sh.radius = 0.3
@@ -139,6 +139,15 @@ func _physics_process(delta: float) -> void:
 	var hv := Vector3(velocity.x, 0, velocity.z).lerp(target, minf(1.0, delta * 10.0))
 	velocity = Vector3(hv.x, -2.0, hv.z)
 	move_and_slide()
+	# build-9: touching the Bellman wakes him if dormant, and is a catch once he is awake
+	for ci in get_slide_collision_count():
+		var other = get_slide_collision(ci).get_collider()
+		if other != null and main != null and other == main.get("bellman") and not hidden:
+			if other.get("state") == "dormant":
+				other.call("wake")
+			else:
+				main.call("caught")
+			break
 
 	var moving := hv.length() > 0.3
 	if moving:
