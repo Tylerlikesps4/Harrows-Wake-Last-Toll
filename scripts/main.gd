@@ -126,7 +126,7 @@ func _ready() -> void:
 	_build_environment()
 	_build_level()
 	if OS.has_feature("web"):
-		Engine.max_fps = 60
+		_apply_web_low_quality()
 	fps_label = Label.new()
 	fps_label.position = Vector2(2, 2)
 	fps_label.visible = false
@@ -231,6 +231,30 @@ func box(parent: Node3D, size: Vector3, pos: Vector3, texname: String, col: Colo
 		sb.add_child(cs)
 		mi.add_child(sb)
 	return mi
+
+
+# build-9: the web always runs the low-quality preset; phones/tablets go lower still.
+func _apply_web_low_quality() -> void:
+	var mob := is_mobile_web()
+	Engine.max_fps = 30 if mob else 60
+	get_viewport().msaa_3d = Viewport.MSAA_DISABLED
+	get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+	get_viewport().positional_shadow_atlas_size = 0 if mob else 512
+	if env != null:
+		env.ssao_enabled = false
+		env.ssr_enabled = false
+		env.sdfgi_enabled = false
+		env.glow_enabled = false
+		env.volumetric_fog_enabled = false
+	for n in room_lights:
+		var l := n as Light3D
+		l.shadow_enabled = false
+		# cull lights far from the camera so each mesh gets fewer extra light passes
+		l.distance_fade_enabled = true
+		l.distance_fade_begin = 10.0 if mob else 16.0
+		l.distance_fade_length = 4.0
+	if player != null and player.get("flashlight") != null:
+		player.flashlight.shadow_enabled = false
 
 
 func _build_environment() -> void:
@@ -527,12 +551,23 @@ func _build_sfx() -> void:
 		sfx[n] = load("res://assets/audio/%s.ogg" % n)
 	for i in 3:
 		sfx["step_%d" % i] = load("res://assets/audio/step_wood_%d.ogg" % i)
-	amb_player = _loop("amb_orphanage", -10.0)
-	heart_player = _loop("heart", -80.0)
-	_loop("amb_rain", -20.0)
+	# build-9: on the web, ambient loops start in start_game (after a user gesture) so iOS Safari never stalls on audio unlock
+	var auto := not OS.has_feature("web")
+	amb_player = _loop("amb_orphanage", -10.0, auto)
+	heart_player = _loop("heart", -80.0, auto)
+	rain_player = _loop("amb_rain", -20.0, auto)
 
 
-func _loop(n: String, vol: float) -> AudioStreamPlayer:
+var rain_player: AudioStreamPlayer
+var audio_unlocked := not OS.has_feature("web")
+var pending_title_vol = null
+
+
+static func is_mobile_web() -> bool:
+	return OS.has_feature("web_ios") or OS.has_feature("web_android") or OS.has_feature("mobile")
+
+
+func _loop(n: String, vol: float, autoplay: bool = true) -> AudioStreamPlayer:
 	var a := AudioStreamPlayer.new()
 	var st: AudioStream = load("res://assets/audio/%s.ogg" % n)
 	if st is AudioStreamOggVorbis:
@@ -541,7 +576,8 @@ func _loop(n: String, vol: float) -> AudioStreamPlayer:
 	a.stream = st
 	a.volume_db = vol
 	add_child(a)
-	a.play()
+	if autoplay:
+		a.play()
 	return a
 
 
@@ -692,6 +728,9 @@ func _input_hint() -> String:
 
 
 func _play_title_music(vol: float) -> void:
+	if not audio_unlocked:
+		pending_title_vol = vol
+		return
 	if title_player == null:
 		title_player = _loop("title_music", vol)
 	else:
@@ -714,6 +753,10 @@ func start_game() -> void:
 		tw.tween_property(title_player, "volume_db", -60.0, 1.5)
 		tw.tween_callback(title_player.stop)
 	_hide_overlay()
+	audio_unlocked = true
+	for lp in [amb_player, heart_player, rain_player]:
+		if lp != null and not lp.playing:
+			lp.play()
 	run_time = 0.0
 	fade = 1.0
 	if not touch.visible and DisplayServer.get_name() != "headless":
@@ -1032,6 +1075,10 @@ func _win() -> void:
 
 # ---------------------------------------------------------------- loop
 func _input(ev: InputEvent) -> void:
+	if not audio_unlocked and ((ev is InputEventMouseButton or ev is InputEventScreenTouch or ev is InputEventKey or ev is InputEventJoypadButton) and ev.is_pressed()):
+		audio_unlocked = true
+		if pending_title_vol != null and mode == "title":
+			_play_title_music(pending_title_vol)
 	if ev is InputEventKey and ev.pressed and not ev.echo and ev.keycode == KEY_F3:
 		show_fps = not show_fps
 		fps_label.visible = show_fps
