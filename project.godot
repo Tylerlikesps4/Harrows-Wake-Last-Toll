@@ -4,6 +4,7 @@ config_version=5
 [application]
 
 config/name="Harrow's Wake: Last Toll"
+config/version="build-9"
 config/description="PS1-style first-person horror - Super Free AI Game Jam #2"
 run/main_scene="res://scenes/main.tscn"
 config/icon="res://icon.svg"
